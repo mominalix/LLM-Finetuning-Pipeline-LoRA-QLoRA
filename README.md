@@ -638,13 +638,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [LoRA Paper](https://arxiv.org/abs/2106.09685) by Hu et al.
 - [QLoRA Paper](https://arxiv.org/abs/2305.14314) by Dettmers et al.
 
-## Support
-
-- Email: support@example.com
-- Discord: [Join our community](https://discord.gg/example)
-- Documentation: [docs.example.com](https://docs.example.com)
-- Issues: [GitHub Issues](https://github.com/your-username/llm-finetuning-pipeline/issues)
-
----
-
-**Star this repository if you find it useful!**
