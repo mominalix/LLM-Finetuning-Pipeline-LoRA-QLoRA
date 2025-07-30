@@ -1,0 +1,202 @@
+version: '3.8'
+
+services:
+  # MLflow Tracking Server
+  mlflow:
+    image: python:3.10-slim
+    container_name: llm-mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow-data:/mlflow
+      - ./mlruns:/app/mlruns
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=sqlite:///mlflow/mlflow.db
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlflow/artifacts
+    command: >
+      sh -c "pip install mlflow && 
+             mlflow server 
+             --host 0.0.0.0 
+             --port 5000 
+             --backend-store-uri sqlite:///mlflow/mlflow.db 
+             --default-artifact-root /mlflow/artifacts"
+    networks:
+      - llm-network
+    restart: unless-stopped
+
+  # Main Application (CPU version)
+  app-cpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: cpu
+    container_name: llm-app-cpu
+    ports:
+      - "8501:8501"  # Streamlit
+      - "8080:8080"  # Flask API
+    volumes:
+      - ./data:/app/data
+      - ./cache:/app/cache
+      - ./logs:/app/logs
+      - ./outputs:/app/outputs
+      - ./configs:/app/configs
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - CUDA_VISIBLE_DEVICES=""  # Disable CUDA for CPU version
+      - ENVIRONMENT=docker
+    depends_on:
+      - mlflow
+    networks:
+      - llm-network
+    restart: unless-stopped
+    profiles:
+      - cpu
+
+  # Main Application (GPU version)
+  app-gpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: gpu
+    container_name: llm-app-gpu
+    ports:
+      - "8501:8501"  # Streamlit
+      - "8080:8080"  # Flask API
+    volumes:
+      - ./data:/app/data
+      - ./cache:/app/cache
+      - ./logs:/app/logs
+      - ./outputs:/app/outputs
+      - ./configs:/app/configs
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - NVIDIA_VISIBLE_DEVICES=all
+      - ENVIRONMENT=docker
+    depends_on:
+      - mlflow
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - llm-network
+    restart: unless-stopped
+    profiles:
+      - gpu
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: llm-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - llm-network
+    restart: unless-stopped
+    profiles:
+      - cache
+
+  # PostgreSQL for advanced MLflow backend (optional)
+  postgres:
+    image: postgres:15-alpine
+    container_name: llm-postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=mlflow
+      - POSTGRES_USER=mlflow
+      - POSTGRES_PASSWORD=mlflow123
+    networks:
+      - llm-network
+    restart: unless-stopped
+    profiles:
+      - postgres
+
+  # MLflow with PostgreSQL backend
+  mlflow-postgres:
+    image: python:3.10-slim
+    container_name: llm-mlflow-postgres
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow-artifacts:/mlflow/artifacts
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=postgresql://mlflow:mlflow123@postgres:5432/mlflow
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlflow/artifacts
+    command: >
+      sh -c "pip install mlflow psycopg2-binary && 
+             mlflow server 
+             --host 0.0.0.0 
+             --port 5000 
+             --backend-store-uri postgresql://mlflow:mlflow123@postgres:5432/mlflow 
+             --default-artifact-root /mlflow/artifacts"
+    depends_on:
+      - postgres
+    networks:
+      - llm-network
+    restart: unless-stopped
+    profiles:
+      - postgres
+
+  # Jupyter Lab for development (optional)
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: llm-jupyter
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./:/app
+      - ./notebooks:/app/notebooks
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    command: >
+      sh -c "jupyter lab 
+             --ip=0.0.0.0 
+             --port=8888 
+             --no-browser 
+             --allow-root 
+             --NotebookApp.token='' 
+             --NotebookApp.password=''"
+    depends_on:
+      - mlflow
+    networks:
+      - llm-network
+    restart: unless-stopped
+    profiles:
+      - dev
+
+volumes:
+  mlflow-data:
+  mlflow-artifacts:
+  postgres-data:
+  redis-data:
+
+networks:
+  llm-network:
+    driver: bridge
+
+# Usage Examples:
+# 
+# CPU-only deployment:
+# docker-compose --profile cpu up -d
+#
+# GPU deployment:
+# docker-compose --profile gpu up -d
+#
+# Full development setup:
+# docker-compose --profile gpu --profile dev --profile cache up -d
+#
+# Production with PostgreSQL:
+# docker-compose --profile gpu --profile postgres up -d

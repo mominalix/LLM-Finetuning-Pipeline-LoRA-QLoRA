@@ -1,0 +1,34 @@
+# IMDB Sentiment Analysis Dataset Configuration
+# This is a complete dataset configuration for the IMDB movie review sentiment dataset
+
+name: "imdb"
+train_split: "train"
+test_split: "test"
+validation_split: null  # Will be created from train split
+
+# Column mapping
+text_column: "text"
+label_column: "label"
+
+# Data processing
+max_samples: null  # Use full dataset (25k train + 25k test)
+validation_size: 0.1  # 10% of training data for validation
+remove_duplicates: true
+shuffle: true
+seed: 42
+
+# Caching for faster loading
+cache_dir: "./cache/datasets"
+streaming: false
+
+# Label information (for reference)
+# 0: Negative sentiment
+# 1: Positive sentiment
+# num_labels: 2
+
+# Dataset statistics:
+# - Training samples: ~22.5k (after validation split)
+# - Validation samples: ~2.5k
+# - Test samples: 25k
+# - Average text length: ~231 words
+# - Max text length: ~2470 words (will be truncated based on model max_length)

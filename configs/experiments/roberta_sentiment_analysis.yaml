@@ -1,0 +1,126 @@
+# Complete configuration for RoBERTa sentiment analysis fine-tuning
+# This demonstrates a real-world example using the IMDB dataset
+
+# Model Configuration
+model:
+  name: "roberta-base"
+  task_type: "sequence_classification"
+  num_labels: 2
+  max_length: 512
+  use_fast_tokenizer: true
+  trust_remote_code: false
+  torch_dtype: "auto"
+  device_map: "auto"
+  low_cpu_mem_usage: true
+  cache_dir: "${HF_CACHE_DIR:~/.cache/huggingface}"
+
+# Dataset Configuration
+dataset:
+  name: "imdb"  # HuggingFace IMDB dataset
+  train_split: "train"
+  test_split: "test"
+  text_column: "text"
+  label_column: "label"
+  max_samples: null  # Use full dataset
+  validation_size: 0.1  # 10% of training data for validation
+  remove_duplicates: true
+  shuffle: true
+  seed: 42
+  cache_dir: "${DATASETS_CACHE:./cache/datasets}"
+  streaming: false
+
+# LoRA Configuration
+use_lora: true
+lora:
+  r: 8
+  alpha: 16
+  dropout: 0.1
+  bias: "none"
+  target_modules: ["query", "value"]
+  use_rslora: false
+  use_dora: false
+
+# No QLoRA needed for RoBERTa base
+use_qlora: false
+
+# Training Configuration
+training:
+  output_dir: "./outputs/roberta_sentiment_imdb"
+  num_train_epochs: 3
+  per_device_train_batch_size: 16
+  per_device_eval_batch_size: 32
+  gradient_accumulation_steps: 1
+  
+  # Optimization
+  learning_rate: 2e-5
+  weight_decay: 0.01
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  adam_epsilon: 1e-8
+  max_grad_norm: 1.0
+  
+  # Learning rate scheduling
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1
+  
+  # Evaluation and saving
+  evaluation_strategy: "epoch"
+  save_strategy: "epoch"
+  save_total_limit: 2
+  load_best_model_at_end: true
+  metric_for_best_model: "eval_f1"
+  greater_is_better: true
+  
+  # Performance optimizations
+  bf16: true
+  gradient_checkpointing: true
+  dataloader_pin_memory: true
+  dataloader_num_workers: 4
+  
+  # Logging
+  logging_strategy: "steps"
+  logging_steps: 100
+  log_level: "info"
+  
+  # Resume capability
+  resume_from_checkpoint: null
+
+# MLflow Configuration
+mlflow:
+  tracking_uri: "${MLFLOW_TRACKING_URI:http://localhost:5000}"
+  experiment_name: "roberta_sentiment_analysis"
+  run_name: null  # Auto-generated based on timestamp
+  artifact_location: null
+  
+  # Logging preferences
+  log_model: true
+  log_predictions: true
+  log_metrics: true
+  log_artifacts: true
+  
+  # Auto-logging
+  autolog: false
+  log_every_n_epoch: 1
+  
+  # Model registry
+  register_model: false
+  model_name: "roberta_sentiment_classifier"
+
+# Evaluation Configuration
+evaluation:
+  compute_metrics: true
+  metrics: ["accuracy", "f1", "precision", "recall"]
+  custom_metrics: []
+  evaluation_datasets: []
+  
+  # Prediction saving
+  save_predictions: true
+  prediction_output_dir: "./predictions/roberta_sentiment"
+  
+  # Benchmarking
+  run_benchmark: false
+  benchmark_datasets: []
+
+# Global Configuration
+seed: 42
+cuda_device: null  # Auto-detect
